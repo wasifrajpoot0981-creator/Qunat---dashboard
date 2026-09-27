@@ -1,0 +1,72 @@
+import yfinance as yf
+import numpy as np
+import pandas as pd
+
+def backtest_gold_formula():
+    print("==================================================")
+    print("🪙 Gold Sweep Formula Backtesting (Historical Accuracy)")
+    print("==================================================")
+    
+    # 1. Pichle 60 din ka 1-hour ka data fetch karna
+    gold = yf.Ticker("GC=F")
+    df = gold.history(period="60d", interval="1h")
+    
+    if df.empty or len(df) < 50:
+        print("Data pura nahi mila.")
+        return
+        
+    wins = 0
+    losses = 0
+    total_trades = 0
+    
+    # 2. Historical candles par loop chala kar backtest karna
+    for i in range(50, len(df) - 1):
+        subset = df.iloc[i-50:i]
+        ops = subset['Close'].iloc[-1]
+        
+        # Screenshots wala formula
+        factor_a = 23.87
+        factor_b = 15.87
+        sweep_base_val = 98.88
+        multiplier = 2.6
+        
+        vol_ratio_component = (factor_a / factor_b) * (ops / 100.0)
+        root_power = 1.0 / multiplier
+        sweep_component = (sweep_base_val ** root_power) * multiplier
+        calculated_level = vol_ratio_component + sweep_component
+        
+        upper_target = ops + calculated_level
+        lower_target = ops - calculated_level
+        
+        # Agli candle ka high aur low check karna ke target touch hua ya nahi
+        next_candle_high = df['High'].iloc[i+1]
+        next_candle_low = df['Low'].iloc[i+1]
+        next_candle_close = df['Close'].iloc[i+1]
+        
+        hit_upper = next_candle_high >= upper_target
+        hit_lower = next_candle_low <= lower_target
+        
+        if hit_upper or hit_lower:
+            total_trades += 1
+            # Accuracy / Win condition check
+            if hit_upper and next_candle_close > ops:
+                wins += 1
+            elif hit_lower and next_candle_close < ops:
+                wins += 1
+            else:
+                losses += 1
+                
+    if total_trades > 0:
+        win_rate = (wins / total_trades) * 100
+    else:
+        win_rate = 0.0
+        
+    print("📊 Backtest Results & Accuracy:")
+    print(f"   * Total Signals Generated: {total_trades}")
+    print(f"   * Winning Trades: {wins}")
+    print(f"   * Losing Trades: {losses}")
+    print(f"   * Strategy Win Rate (Accuracy): {win_rate:.2f}%")
+    print("==================================================\n")
+
+if __name__ == "__main__":
+    backtest_gold_formula()
